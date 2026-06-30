@@ -1,0 +1,116 @@
+name: CI — PhotoSphere
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ─── Job 1: Testes Unitários e de Integração ─────────────────────────────
+  unit-and-integration:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Criar .env para testes
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          PORT=3000
+          SESSION_SECRET=ci_secret_test_only
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=photosphere
+          DB_USER=root
+          DB_PASS=root
+          EOF
+
+      - name: Rodar testes unitários e de integração
+        run: npm run test:run
+
+      - name: Gerar relatório de cobertura
+        run: npm run test:coverage
+
+      - name: Upload relatório de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+  # ─── Job 2: Testes E2E com Playwright ────────────────────────────────────
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: unit-and-integration
+    continue-on-error: true
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: photosphere
+          MYSQL_USER: photosphere_user
+          MYSQL_PASSWORD: photosphere_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar browsers do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Criar .env para testes E2E
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          PORT=3000
+          SESSION_SECRET=ci_secret_test_only
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=photosphere
+          DB_USER=root
+          DB_PASS=root
+          EOF
+
+      - name: Rodar testes E2E
+        run: npx playwright test
+
+      - name: Upload relatório Playwright
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
