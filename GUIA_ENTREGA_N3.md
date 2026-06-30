@@ -29,7 +29,7 @@ git init
 git add .
 git commit -m "feat: N3 completo - modulo Photo com TDD, E2E, CI"
 git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/photosphere-n3.git
+git remote add origin https://github.com/itsandrezl/photosphere-n3.git
 git push -u origin main
 ```
 > Substitua `SEU_USUARIO` pelo seu usuário do GitHub.
